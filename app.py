@@ -21,11 +21,22 @@ st.subheader("Download from YouTube, Instagram, X (Twitter), and Facebook")
 url = st.text_input("", placeholder="Paste your video link here...")
 
 def get_video_info(url):
-    ydl_opts = {'quiet': True, 'no_warnings': True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(url, download=False)
-
-if url:
+    ydl_opts = {
+    'format': 'best',
+    'quiet': True,
+    'no_warnings': True,
+    # Forces IPv4 to avoid common IPv6 blocks on cloud servers
+    'source_address': '0.0.0.0', 
+    # Mimics a real Windows Chrome browser
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'add_header': [
+        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language: en-US,en;q=0.9',
+    ],
+    'nocheckcertificate': True,
+}
+    
+    if url:
     try:
         with st.spinner("Fetching video details..."):
             info = get_video_info(url)
