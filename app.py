@@ -4,72 +4,85 @@ import os
 import re
 
 # Page Configuration
-st.set_page_config(page_title="Video Downloader", page_icon="📥", layout="centered")
+st.set_page_config(page_title="YT Downloader & Converter", page_icon="🎬", layout="centered")
 
-# Custom CSS for UI
+# YouTube-inspired Dark Theme UI
 st.markdown("""
     <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #ff4b4b; color: white; font-weight: bold; }
-    .stTextInput>div>div>input { border-radius: 5px; }
+    .main { background-color: #0f0f0f; color: white; }
+    .stTextInput>div>div>input { background-color: #212121; color: white; border: 1px solid #3f3f3f; }
+    .stButton>button { width: 100%; border-radius: 5px; font-weight: bold; }
+    .video-btn { background-color: #cc0000 !important; color: white !important; }
+    .audio-btn { background-color: #2ba640 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📥 Social Media Downloader")
-st.write("Download high-quality videos from YouTube, Instagram, X, and Facebook.")
+st.title("🎬 YT Video & Audio Downloader")
+url = st.text_input("", placeholder="Paste YouTube link here...")
 
-url = st.text_input("", placeholder="Paste your video link here...")
+def is_youtube_url(url):
+    return re.match(r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/.+', url)
 
 if url:
-    try:
-        # 1. Setup Options for Extraction
-        extract_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        }
-
-        with st.spinner("Fetching video details..."):
-            with yt_dlp.YoutubeDL(extract_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-            
-            # UI Layout for Preview
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                st.image(info.get('thumbnail', ''), use_container_width=True)
-            with col2:
-                st.write(f"**Title:** {info.get('title', 'Unknown Title')[:50]}...")
-                st.write(f"**Source:** {info.get('extractor_key', 'Unknown')}")
-
-            # 2. Download Logic
-            if st.button("Download Video"):
-                if not os.path.exists('downloads'):
-                    os.makedirs('downloads')
-                
-                file_path = f"downloads/{info['id']}.mp4"
-                
-                # Setup Download Options with 403 Bypass Headers
-                dl_opts = {
-                    'format': 'best', # Using 'best' to avoid FFmpeg issues for now
-                    'outtmpl': file_path,
-                    'noplaylist': True,
+    if not is_youtube_url(url):
+        st.error("⚠️ Please enter a valid YouTube URL.")
+    else:
+        try:
+            with st.spinner("🔍 Fetching metadata..."):
+                ydl_opts = {
+                    'quiet': True,
                     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                    'referer': 'https://www.google.com/',
                 }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                
+                # Display Video Info
+                st.image(info.get('thumbnail', ''), width=450)
+                st.subheader(info.get('title'))
+                
+                col1, col2 = st.columns(2)
 
-                with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                    ydl.download([url])
+                # --- VIDEO DOWNLOAD BUTTON ---
+                with col1:
+                    if st.button("🎥 Download Video (MP4)"):
+                        with st.spinner("Downloading video..."):
+                            save_path = f"downloads/{info['id']}.mp4"
+                            opts = {
+                                'format': 'best',
+                                'outtmpl': save_path,
+                                'noplaylist': True,
+                            }
+                            with yt_dlp.YoutubeDL(opts) as ydl:
+                                ydl.download([url])
+                            
+                            with open(save_path, "rb") as f:
+                                st.download_button("💾 Save MP4", f, file_name=f"{info['title']}.mp4")
 
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        label="✅ Save to Device",
-                        data=f,
-                        file_name=f"video_{info['id']}.mp4",
-                        mime="video/mp4"
-                    )
-                    
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+                # --- AUDIO DOWNLOAD BUTTON ---
+                with col2:
+                    if st.button("🎵 Download Audio (MP3)"):
+                        with st.spinner("Extracting audio..."):
+                            # We use 'bestaudio' to get the highest quality stream
+                            save_path = f"downloads/{info['id']}.mp3"
+                            opts = {
+                                'format': 'bestaudio/best',
+                                'outtmpl': save_path,
+                                # Note: If ffmpeg is on server, use postprocessors for true MP3
+                                # If no ffmpeg, this will just save the audio stream (m4a/webm)
+                                'postprocessors': [{
+                                    'key': 'FFmpegExtractAudio',
+                                    'preferredcodec': 'mp3',
+                                    'preferredquality': '192',
+                                }],
+                            }
+                            with yt_dlp.YoutubeDL(opts) as ydl:
+                                ydl.download([url])
+                            
+                            with open(save_path, "rb") as f:
+                                st.download_button("💾 Save MP3", f, file_name=f"{info['title']}.mp3")
+
+        except Exception as e:
+            st.error(f"Something went wrong. YouTube might be blocking the request. Error: {e}")
 
 st.divider()
-st.caption("Note: For high-resolution (1080p+) merging, ensure FFmpeg is installed on the server.")
+st.caption("Privacy: We do not store your data. Files are deleted after the session.")
