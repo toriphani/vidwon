@@ -35,7 +35,7 @@ def get_video_info(url):
     ],
     'nocheckcertificate': True,
 }
-            with st.spinner("Fetching video details..."):
+    with st.spinner("Fetching video details..."):
             info = get_video_info(url)
             
             # Display Video Preview
